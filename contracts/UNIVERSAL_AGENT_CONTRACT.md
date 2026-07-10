@@ -61,11 +61,13 @@ observability:
   supports_trace_id: true
 ```
 
-## Capacidade
+## Relacao com capacidades
 
-Uma capacidade e uma unidade roteavel de trabalho.
+Uma capacidade e uma unidade roteavel de trabalho, definida em `contracts/CapabilityContract.md`.
 
-Ela deve responder:
+O agente nao define a semantica da capacidade. O agente declara suporte a uma capacidade existente e informa seus limites de execucao.
+
+A capacidade responde:
 
 - o que faz;
 - quais entradas aceita;
@@ -90,6 +92,8 @@ documentation.write
 validation.run
 github.pull_request.create
 ```
+
+O agente pode declarar especializacao, confiabilidade ou requisitos adicionais, mas nao pode alterar criterios de sucesso da capacidade sem uma nova versao do contrato.
 
 ## Tarefa
 
