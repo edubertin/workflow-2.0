@@ -1,0 +1,21 @@
+# Kernel
+
+O kernel e o nucleo do Workflow 2.0.
+
+Ele coordena capacidades, execucoes, politicas, eventos, estado e adaptadores. Esta pasta define apenas a estrutura conceitual inicial do kernel.
+
+Nao ha implementacao nesta fase.
+
+## Submodulos
+
+- `adapters`: bordas para modelos, ferramentas e sistemas externos.
+- `capabilities`: catalogo e semantica de capacidades.
+- `events`: eventos internos e trilha de auditoria.
+- `memory`: memoria acessada por contrato.
+- `observability`: logs, traces, metricas e diagnostico.
+- `orchestration`: decomposicao, roteamento e composicao de trabalho.
+- `policies`: permissoes, limites e regras de seguranca.
+- `registry`: registro de agentes, capacidades e versoes.
+- `runtime`: ciclo de vida de execucoes.
+- `scheduler`: fila, concorrencia e agendamento.
+- `state`: estado operacional e artefatos de execucao.
