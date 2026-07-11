@@ -19,4 +19,4 @@ Nao ha implementacao nesta fase.
 - `registry`: registro de agentes, capacidades e versoes.
 - `runtime`: ciclo de vida de execucoes.
 - `scheduler`: fila, concorrencia e agendamento.
-- `state`: estado operacional e artefatos de execucao.
+- `state`: estado operacional e referencias de artefatos de execucao.

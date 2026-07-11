@@ -12,7 +12,6 @@ normalized
 policy_checked
 capabilities_resolved
 executor_selected
-ready
 running
 artifact_pending
 success_evaluated

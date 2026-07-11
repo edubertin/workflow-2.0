@@ -46,10 +46,19 @@ Ainda nao existem:
 
 - `ARCHITECTURE.md`: arquitetura revisada do Workflow V2.
 - `RuntimeFlow.md`: ciclo completo de execucao do runtime.
-- `contracts/CapabilityContract.md`: contrato universal de capacidade.
+- `ExecutionEngine.md`: especificacao arquitetural do motor de execucao.
+- `ExecutionStateMachine.md`: maquina de estados arquitetural do Execution Engine.
+- `EventCatalog.md`: catalogo conceitual de eventos do runtime.
+- `EventContract.md`: contrato arquitetural de eventos.
+- `ArtifactEnvelope.md`: especificacao do `Artifact Envelope v0`.
+- `CapabilityContract.md`: contrato semantico arquitetural de uma capability.
+- `PolicyEngine.md`: especificacao arquitetural do Policy Engine.
+- `Registry.md`: especificacao arquitetural do Registry.
+- `contracts/CapabilityContract.md`: contrato universal inicial de capacidade.
 - `contracts/TaskEnvelope.md`: envelope de tarefa normalizada.
 - `contracts/CapabilityPlan.md`: plano de capacidades para uma task.
 - `contracts/ExecutionResult.md`: resultado consolidado de execucao.
+- `contracts/EventContract.md`: contrato universal inicial de eventos.
 - `contracts/UNIVERSAL_AGENT_CONTRACT.md`: contrato de agente como executor de capacidades.
 - `kernel/artifact-generation/README.md`: formato inicial de artefatos.
 - `AGENTS.md`: regras operacionais para agentes que atuarem neste repositorio.
@@ -61,10 +70,19 @@ Ainda nao existem:
 .
 |-- AGENTS.md
 |-- ARCHITECTURE.md
+|-- ArtifactEnvelope.md
+|-- CapabilityContract.md
+|-- EventCatalog.md
+|-- EventContract.md
+|-- ExecutionEngine.md
+|-- ExecutionStateMachine.md
+|-- PolicyEngine.md
+|-- Registry.md
 |-- RuntimeFlow.md
 |-- contracts/
 |   |-- CapabilityContract.md
 |   |-- CapabilityPlan.md
+|   |-- EventContract.md
 |   |-- ExecutionResult.md
 |   |-- TaskEnvelope.md
 |   `-- UNIVERSAL_AGENT_CONTRACT.md
