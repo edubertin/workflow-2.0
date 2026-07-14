@@ -20,6 +20,20 @@ Workflow V2 e um runtime de orquestracao orientado a capacidades. O kernel nao c
 ## Contratos centrais
 
 - `CapabilityContract.md`: define a semantica arquitetural de uma capability.
+- `CommandContract.md`: define commands como solicitacoes causais,
+  idempotentes e auditaveis para a State Machine.
+- `EffectContract.md`: define effects como trabalho externo declarado pela
+  State Machine, separado de eventos e attempts.
+- `RuntimeContextContract.md`: define os inputs versionados disponiveis para
+  decisoes deterministicas da State Machine.
+- `AttemptContract.md`: define identidade e correlacao de tentativas de
+  execucao para retries, timeouts e late results futuros.
+- `PolicyConstraintsContract.md`: define constraints tipadas, versionadas,
+  canonicas e reproduziveis por replay.
+- `ExecutorSelectionContract.md`: define a selecao deterministica de
+  executores opacos a partir de candidatos versionados.
+- `RegistrySnapshotContract.md`: define snapshots imutaveis e canonicos do
+  Registry como inputs versionados.
 - `ArtifactEnvelope.md`: define o envelope de artefato como fonte de verdade.
 - `EventContract.md`: define o contrato arquitetural de eventos.
 - `EventCatalog.md`: define familias conceituais de eventos do runtime.
@@ -30,9 +44,25 @@ Workflow V2 e um runtime de orquestracao orientado a capacidades. O kernel nao c
 - `contracts/TaskEnvelope.md`: normaliza uma intencao em tarefa.
 - `contracts/CapabilityPlan.md`: traduz tarefa em capacidades.
 - `contracts/ExecutionResult.md`: consolida resultado de execucao.
+- `contracts/PolicyConstraintsContract.md`: define o shape minimo de constraint
+  set tipado, versionado e referenciavel.
+- `contracts/RegistrySnapshotContract.md`: define o shape minimo de snapshot do Registry.
 - `contracts/EventContract.md`: define o contrato universal inicial de eventos.
 - `contracts/UNIVERSAL_AGENT_CONTRACT.md`: define agente como executor de capacidades.
-- `ExecutionEngine.md`: especifica como o runtime conduz task, plano, policies, registry, executor, eventos, artefatos e resultado.
+- `ExecutionEngine.md`: especifica como o runtime conduz task, plano, policies, registry, selecao de executor, eventos, artefatos e resultado.
+
+## Autoridade documental
+
+- `README.md` e este `AGENTS.md` definem filosofia, limites e regras de atuacao.
+- `ARCHITECTURE.md` define fronteiras de responsabilidade.
+- `ExecutionStateMachine.md` e normativo para estados, transicoes, terminalidade, retries, timeouts, recovery e replay.
+- `ExecutionEngine.md` e normativo para o ciclo operacional do runtime.
+- Documentos raiz de contrato definem semantica.
+- `contracts/*.md` define os shapes normativos minimos para implementacao futura.
+- `kernel/*/README.md` e mapa estrutural e nao substitui contratos ou especificacoes normativas.
+
+Quando houver divergencia, nao escolher por interpretacao implicita. Ajustar a
+documentacao antes de implementar.
 
 ## Limites
 

@@ -2,7 +2,7 @@
 
 Versao: `0.1.0-draft`
 
-Este contrato define como agentes devem se apresentar e operar dentro do Workflow 2.0.
+Este contrato define como agentes devem se apresentar e operar dentro do Workflow V2.
 
 Ele e intencionalmente independente de linguagem, modelo, provedor, framework e persona.
 
@@ -146,6 +146,12 @@ errors:
 ## Eventos
 
 Agentes devem emitir eventos seguros e auditaveis.
+
+Eventos `agent.*` sao sinais internos ou declaracoes do executor. Para a
+auditoria normativa do runtime, eles devem ser aceitos ou traduzidos pelo
+kernel para eventos compativeis com `EventContract` e `EventCatalog`, como
+`capability.execution.started`, `capability.execution.completed` ou
+`capability.execution.failed`.
 
 Eventos obrigatorios:
 

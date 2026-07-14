@@ -18,7 +18,7 @@ Mas ainda havia tres riscos:
 - `Estado`, `Memoria`, `Eventos` e `Artefatos` estavam agrupados, apesar de terem papeis diferentes.
 - O ciclo de execucao era curto demais para explicar gates, criterios de sucesso, geracao de artefatos e observabilidade.
 
-A simplificacao adotada agora e esta: o kernel executa capacidades, nao agentes. Agentes sao detalhe de selecao no registry.
+A simplificacao adotada agora e esta: o kernel executa capacidades, nao agentes. Agentes podem aparecer como candidatos opacos registrados no Registry, mas a selecao final pertence ao Execution Engine e deve seguir contrato deterministico.
 
 ## Modelo conceitual
 

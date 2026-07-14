@@ -22,8 +22,11 @@ Eventos representam fatos do runtime, como:
 - plano resolvido;
 - policy avaliada;
 - consulta ao Registry concluida;
+- ausencia objetiva de candidato elegivel no Registry;
 - executor selecionado;
 - capability iniciada;
+- attempt declarado, iniciado, concluido, falhado, expirado ou observado como
+  late result;
 - artifact proposto ou validado;
 - resultado consolidado;
 - falha registrada;
@@ -189,7 +192,7 @@ Objeto ou decisao sobre o qual o evento fala.
 Semantica:
 
 - informa se o evento trata de task, plan, capability, policy, registry,
-  executor selection, artifact ou result;
+  executor selection, attempt, artifact ou result;
 - deve incluir identificador do assunto quando existir;
 - nao deve carregar o objeto completo quando uma referencia versionada for
   suficiente.
@@ -284,11 +287,39 @@ Obrigatorio quando o evento registra consulta ou decisao baseada no Registry.
 Deve referenciar:
 
 - snapshot do Registry;
+- versao do snapshot;
+- versao do schema do snapshot;
+- digest canonico do snapshot;
+- escopo e criterios de lookup quando o snapshot for escopado;
 - registros ou candidatos considerados;
 - registros ou candidatos descartados;
 - criterio deterministico de ordenacao ou descarte quando aplicavel.
 
 Evento nao substitui o snapshot do Registry.
+
+### attempt_ref
+
+Obrigatorio quando o evento registra criacao, inicio, conclusao, falha,
+timeout, cancelamento, retry ou late result de uma tentativa.
+
+Deve referenciar:
+
+- `attempt_id`;
+- `attempt_version`;
+- `attempt_number`;
+- `effect_id`;
+- `effect_version`;
+- `command_id`;
+- `command_version`;
+- `previous_attempt_id` quando o ordinal for maior que 1;
+- evento terminal anterior quando registrar late result.
+
+Eventos com `attempt_ref` devem incluir em `input_refs` todos os inputs
+versionados usados para declarar, iniciar, encerrar ou classificar a tentativa.
+
+Evento de late result nao pode substituir silenciosamente outcome terminal ja
+registrado. Ele deve apontar para o evento terminal anterior e registrar que a
+observacao tardia nao reescreve o historico.
 
 ## Identidade
 
@@ -361,7 +392,7 @@ Um evento deve permitir seguir a trilha:
 - das capabilities para candidatos do Registry;
 - dos candidatos para selecao de executor;
 - da selecao para policy gates;
-- da execucao para artefatos;
+- da execucao para attempts e artefatos;
 - dos artefatos para validacao;
 - da validacao para `ExecutionResult`.
 
@@ -410,6 +441,8 @@ Eventos devem registrar:
 - consultas ao Registry;
 - selecao de executor;
 - preparo de contexto;
+- declaracao, inicio e fechamento de attempts quando tentativas forem
+  materializadas;
 - execucao da capability;
 - validacao de artefatos;
 - consolidacao de resultado;
@@ -427,6 +460,7 @@ Eventos explicam como esse resultado foi alcancado.
 Regras:
 
 - resultado deve referenciar eventos relevantes;
+- resultado deve referenciar eventos por `event_id` e `event_version`;
 - status global deve ser coerente com eventos de capacidade, falha, policy e
   artefato;
 - eventos nao substituem o resumo consolidado do resultado;
@@ -508,6 +542,9 @@ evento.
 - Todo evento que envolve artefato deve usar referencia, nao conteudo bruto.
 - Todo evento de Registry deve referenciar snapshot.
 - Todo evento de policy deve referenciar policy versionada.
+- Todo evento de attempt deve referenciar `attempt_id`, `attempt_version`,
+  `attempt_number`, `effect_id`, `effect_version`, `command_id` e
+  `command_version`.
 - Eventos sao append-only.
 - Correcao ou reversao deve ser novo evento.
 - Eventos nao podem depender de `latest`, memoria implicita ou estado mutavel

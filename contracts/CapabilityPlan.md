@@ -33,7 +33,10 @@ capabilities:
     capability_version: "0.1.0"
     purpose: "Por que esta capacidade e necessaria"
     input_refs:
-      - "task.intent"
+      - kind: "task|artifact|memory|event|previous_step"
+        id: "input_id"
+        version: "input_version_or_snapshot"
+        relation: "required|optional|derived"
     expected_outputs:
       - "saida esperada"
     expected_artifacts:
@@ -58,6 +61,13 @@ candidate_constraints:
     - "executor_id"
 notes:
   - "observacao arquitetural"
+blocked_reasons:
+  - code: "missing_contract|missing_input|policy_required"
+    input_ref:
+      kind: "task|artifact|memory|event|capability_contract"
+      id: "input_id"
+      version: "input_version_or_snapshot"
+    reason: "motivo seguro"
 ```
 
 ## Invariantes
@@ -70,6 +80,13 @@ notes:
 - `candidate_constraints` pode limitar tipo ou executor por razoes objetivas, mas nao pode escolher uma persona.
 - Cada capacidade deve ter pelo menos um criterio de sucesso verificavel.
 - Artefatos esperados no plano devem ser compativeis com `Artifact Envelope v0`.
+- Todo `input_ref` deve ter `kind`, `id` e `version` ou snapshot.
+- `input_refs` decisivos nao podem ser strings livres.
+- Cada `capability_version` deve corresponder a um `CapabilityContract` versionado conhecido.
+- Um plano `ready` deve ter todos os inputs decisivos versionados.
+- Um plano `blocked` deve registrar `blocked_reasons` com motivo seguro e referencia versionada quando a ausencia for rastreavel.
+- `candidate_constraints` deve ser derivado de task, policy ou contrato versionado; nao pode depender de estado atual sem snapshot.
+- Reordenar passos, dependencias, inputs decisivos ou criterios de sucesso exige nova `plan_version`.
 
 ## Relacao com Artifact Envelope
 
@@ -101,8 +118,10 @@ capabilities:
     capability_version: "0.1.0"
     purpose: "Ler documentos arquiteturais existentes"
     input_refs:
-      - "task.scope"
-      - "task.context_refs"
+      - kind: "task"
+        id: "task_01JABC"
+        version: "0.1.0"
+        relation: "required"
     expected_outputs:
       - "lista de documentos relevantes"
     expected_artifacts: []
@@ -114,8 +133,14 @@ capabilities:
     capability_version: "0.1.0"
     purpose: "Criar especificacoes dos objetos centrais do runtime"
     input_refs:
-      - "step_1.expected_outputs"
-      - "task.intent"
+      - kind: "previous_step"
+        id: "step_1"
+        version: "plan_01JABC:0.1.0"
+        relation: "derived"
+      - kind: "task"
+        id: "task_01JABC"
+        version: "0.1.0"
+        relation: "required"
     expected_outputs:
       - "tres contratos documentados"
     expected_artifacts:
@@ -136,6 +161,7 @@ Por que e valido:
 - roteia por capacidades;
 - explicita dependencia entre passos;
 - nao escolhe executor por persona;
+- referencia inputs com identidade e versao;
 - declara artefatos esperados por capacidade.
 
 ## Exemplo invalido

@@ -49,6 +49,10 @@ Ele deve:
 - emitir eventos compativeis com `EventContract`;
 - fornecer constraints para o `ExecutionEngine` quando a decisao for `allow_with_constraints`.
 
+O formato normativo de constraints, incluindo tipos, operadores,
+composicao, canonicalizacao, digest e replay, e definido em
+`PolicyConstraintsContract.md`.
+
 Ele nao deve:
 
 - resolver plano;
@@ -149,7 +153,7 @@ Uso esperado:
 ## Formato conceitual da decisao
 
 ```yaml
-policy_decision_version: "0.1.0"
+decision_version: "0.1.0"
 decision_id: "policy_decision_ulid_or_uuid"
 trace_id: "trace_ulid_or_uuid"
 task_id: "task_ulid_or_uuid"
@@ -166,8 +170,10 @@ input_refs:
     version: "input_version_or_snapshot"
 decision: "allow|deny|allow_with_constraints|requires_approval"
 reason: "motivo seguro e objetivo"
-constraints:
-  - "constraint objetiva"
+constraint_set_ref:
+  constraint_set_id: "policy_constraint_set_id"
+  constraint_set_version: "0.1.0"
+  constraint_set_digest: "digest_of_canonical_constraint_set"
 ```
 
 Este formato e especificacao arquitetural, nao schema implementado.
@@ -175,13 +181,15 @@ Este formato e especificacao arquitetural, nao schema implementado.
 ## Invariantes
 
 - Toda decisao deve ter `decision_id`.
+- Toda decisao deve ter `decision_version`.
 - Toda decisao deve referenciar `trace_id` e `task_id`.
 - Toda decisao deve referenciar policy id e policy version.
 - Toda decisao deve ser uma entre `allow`, `deny`, `allow_with_constraints` ou `requires_approval`.
 - Toda decisao deve registrar inputs versionados.
 - `deny` nao pode incluir constraints de execucao; deve bloquear.
 - `allow` nao pode esconder constraints implicitas.
-- `allow_with_constraints` deve listar constraints explicitas.
+- `allow_with_constraints` deve referenciar um constraint set explicito,
+  tipado, versionado e digerido conforme `PolicyConstraintsContract.md`.
 - `requires_approval` deve explicar qual aprovacao falta.
 - Policy nao pode ampliar permissao alem do que a task e os contratos permitem.
 - Policy nao pode depender de persona, modelo ou prompt.
@@ -353,7 +361,6 @@ O Policy Engine nunca deve decidir com base em:
 - Definir catalogo inicial de permissoes.
 - Definir taxonomia de side effects.
 - Definir como representar approvals humanos sem implementar sistema externo.
-- Definir como constraints serao normalizadas.
 - Definir como policies compostas resolvem conflito.
 - Definir se `requires_approval` pode incluir constraints previas.
 - Definir quais decisoes de policy exigem artefato `decision`.

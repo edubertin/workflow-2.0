@@ -215,8 +215,8 @@ Exemplos conceituais:
 Invariantes:
 
 - devem referenciar policy id e policy version;
-- eventos decisivos devem referenciar `policy_decision_id` e sua versao, ou
-  uma referencia equivalente para a decisao versionada;
+- eventos decisivos devem referenciar `decision_id` e `decision_version` da
+  decisao de policy;
 - devem registrar subject avaliado;
 - devem registrar outcome seguro;
 - nao devem carregar regras internas completas de policy;
@@ -245,16 +245,24 @@ Exemplos conceituais:
 - `registry.snapshot.created`;
 - `registry.lookup.started`;
 - `registry.lookup.completed`;
+- `registry.lookup.no_candidate`;
 - `registry.record.matched`;
 - `registry.record.discarded`.
 
 Invariantes:
 
 - devem referenciar Registry snapshot;
+- devem referenciar snapshot id, snapshot version, schema version e digest;
+- devem registrar escopo e criterios do lookup que produziu o conjunto;
 - devem referenciar `capability_id` e `capability_version`;
+- `registry.lookup.no_candidate` deve registrar explicitamente o conjunto de
+  candidatos considerados, mesmo quando vazio;
+- `registry.lookup.no_candidate` deve registrar que nenhum candidato elegivel
+  foi encontrado sem fabricar candidatos descartados;
 - devem registrar candidatos considerados e descartados quando houver selecao;
 - candidatos considerados e descartados devem incluir `candidate_id` e
-  `candidate_metadata_version`;
+  `candidate_metadata_version`, alem de record id e record version quando
+  vierem de Registry snapshot;
 - descartes devem registrar motivo seguro;
 - nao podem retornar "melhor executor";
 - nao podem depender de persona, prompt, modelo ou estado vivo sem snapshot.
@@ -265,10 +273,12 @@ Registram a escolha de executor opaco para uma capability.
 
 Quando surgem:
 
-- candidatos do Registry foram avaliados;
+- candidatos do Registry foram avaliados apos lookup nao vazio;
 - policy constraints foram aplicadas;
 - desempate deterministico foi usado;
-- executor final foi escolhido ou nenhum candidato foi aceito.
+- executor final foi escolhido;
+- candidatos existentes foram descartados por eligibility;
+- empate irresoluvel bloqueou selecao.
 
 Quem pode originar:
 
@@ -289,9 +299,17 @@ Invariantes:
 - devem referenciar Registry snapshot usado;
 - devem referenciar `capability_id` e `capability_version`;
 - devem referenciar outcome ou constraints de policy aplicados;
+- devem referenciar selection rule id e versao;
+- devem registrar candidatos considerados como conjunto canonico, sem depender
+  da ordem original do Registry;
 - devem registrar alternativas descartadas;
 - devem registrar criterio deterministico de selecao e sua versao;
+- devem registrar ranking final dos candidatos elegiveis quando houver mais de
+  um elegivel;
 - nao podem usar nome narrativo, tom, persona ou modelo como criterio.
+
+Quando o Registry lookup retorna conjunto vazio, o evento decisivo e
+`registry.lookup.no_candidate`; eventos de selecao nao devem ser fabricados.
 
 ### Capability execution events
 
@@ -331,6 +349,55 @@ Invariantes:
 - devem respeitar policy envelope;
 - nao podem elevar permissao;
 - nao podem embutir prompt, chain-of-thought ou payload sensivel.
+
+### Attempt events
+
+Registram o ciclo de vida de uma tentativa concreta de realizar um effect.
+
+Quando surgem:
+
+- uma tentativa e declarada/criada para um effect;
+- uma tentativa inicia;
+- uma tentativa conclui;
+- uma tentativa falha;
+- uma tentativa expira por timeout;
+- uma tentativa e cancelada;
+- uma evidencia tardia chega depois de outcome terminal ou depois de tentativa
+  posterior iniciada.
+
+Quem pode originar:
+
+- State Machine, ao aceitar command que declara ou classifica tentativa;
+- `ExecutionEngine`, ao registrar evidencia recebida;
+- scheduler futuro, apenas para timeout observado;
+- executor autorizado, apenas como origem de evidencia que o engine registra.
+
+Exemplos conceituais:
+
+- `attempt.declared`;
+- `attempt.started`;
+- `attempt.completed`;
+- `attempt.failed`;
+- `attempt.timed_out`;
+- `attempt.cancelled`;
+- `attempt.late_result.observed`.
+
+Invariantes:
+
+- devem obedecer ao `AttemptContract`;
+- devem referenciar `attempt_id`, `attempt_version` e `attempt_number`;
+- devem referenciar `effect_id` e `effect_version`;
+- devem referenciar `command_id` e `command_version`;
+- devem preservar `trace_id` e `task_id`;
+- devem referenciar todos os inputs versionados usados para declarar, iniciar
+  ou encerrar a tentativa;
+- attempts posteriores devem referenciar `previous_attempt_id`;
+- `attempt_number` deve ser ordinal normativo escopado por `effect_id`;
+- `attempt.late_result.observed` deve referenciar o evento terminal anterior;
+- late result nunca pode substituir silenciosamente outcome terminal ja
+  registrado;
+- nao podem depender de relogio real, UUID aleatorio, estado `latest`, memoria
+  implicita, persona, prompt ou modelo.
 
 ### Artifact events
 
@@ -501,18 +568,21 @@ Exemplos conceituais:
 - `execution.retry.requested`;
 - `execution.retry.accepted`;
 - `execution.retry.rejected`;
-- `execution.late_result.observed`.
+- `attempt.late_result.observed`.
 
 Invariantes:
 
-- devem referenciar `attempt_id` atual;
+- devem referenciar `attempt_id` atual conforme `AttemptContract`;
 - devem referenciar tentativa anterior quando houver;
 - devem referenciar a origem versionada do timeout ou retry, como policy,
   capability contract, deadline da task ou runtime context;
 - devem registrar motivo seguro;
 - devem respeitar policy e capability contract;
 - nao podem apagar falha anterior;
-- nao podem repetir effect externo sem garantia de idempotencia registrada.
+- nao podem repetir effect externo sem garantia de idempotencia registrada;
+- eventos desta familia que observarem ou encerrarem uma tentativa devem
+  carregar os mesmos campos normativos de `attempt_ref` exigidos por eventos
+  de attempt.
 
 ### Recovery events
 
@@ -594,7 +664,7 @@ Componentes podem originar eventos somente dentro de sua responsabilidade:
 
 - `ExecutionEngine`: lifecycle, selecao, consolidacao, falhas e fechamento;
 - State Machine: transicoes, recovery, retries, timeouts e aplicacao de
-  commands aceitos;
+  commands aceitos, incluindo declaracao e classificacao de attempts;
 - `PolicyEngine`: outcomes de policy e constraints;
 - Registry: snapshots, lookups e metadados de discovery;
 - Artifact Generation: proposta, criacao, validacao e rejeicao de artefatos;
@@ -644,6 +714,7 @@ O catalogo deve permitir reconstruir:
 - executor selecionado;
 - artifacts produzidos ou validados;
 - falhas, retries, timeouts e recovery;
+- attempts declarados, iniciados, encerrados e observados como late result;
 - caminho ate o `ExecutionResult`.
 
 Replay nao deve:

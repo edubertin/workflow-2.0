@@ -6,6 +6,10 @@ O runtime executa capacidades. Ele nao executa personas.
 
 ## Estados principais
 
+Os estados abaixo descrevem o fluxo narrativo de alto nivel. A nomenclatura
+normativa de estados, transicoes e terminalidade esta em
+`ExecutionStateMachine.md`.
+
 ```text
 received
 normalized

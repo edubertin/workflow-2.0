@@ -168,6 +168,28 @@ Effects nao devem ser aplicados implicitamente. A maquina declara que um efeito
 deve ocorrer; outro componente executa esse efeito e retorna uma evidencia
 versionada.
 
+### Attempts
+
+Attempts correlacionam tentativas concretas de realizar effects.
+
+Responsabilidades:
+
+- identificar a tentativa de forma deterministica conforme
+  `AttemptContract`;
+- diferenciar tentativas sucessivas do mesmo effect por `attempt_number`;
+- preservar a relacao entre command, effect e evidencia observada;
+- permitir que retries, timeouts e late results futuros sejam auditaveis.
+
+Attempts nao sao estado da execucao por si so. O estado de uma tentativa e
+derivado por eventos como `attempt.declared`, `attempt.started`,
+`attempt.completed`, `attempt.failed`, `attempt.timed_out`,
+`attempt.cancelled` e `attempt.late_result.observed`.
+
+A State Machine nao deve criar attempt com UUID aleatorio, wall-clock time,
+estado implicito ou valor `latest`. Quando uma transicao materializar tentativa,
+o `attempt_id` e o ordinal devem ser derivados de inputs versionados e eventos
+anteriores do mesmo `effect_id`.
+
 ### Runtime Context
 
 Runtime Context e o conjunto de referencias versionadas disponiveis para uma
@@ -871,6 +893,7 @@ Replay deve reconstruir:
 - alternativas descartadas;
 - artefatos referenciados;
 - falhas e retries;
+- attempts e seus outcomes terminais quando forem decisivos;
 - status consolidado.
 
 Replay nao deve executar effects novamente. Effects ja executados sao fatos
@@ -983,6 +1006,9 @@ Regras:
 - retry deve ser solicitado por command;
 - retry deve ser permitido por contrato e policy;
 - retry deve referenciar tentativa anterior;
+- retry deve criar novo `attempt_id`;
+- retry deve usar `attempt_number` igual ao proximo ordinal derivado por replay
+  para o mesmo `effect_id`;
 - retry deve registrar motivo seguro;
 - retry deve preservar contador ou identificador de tentativa por evento;
 - retry nao pode apagar falha anterior;
@@ -1009,12 +1035,16 @@ Regras:
   runtime context versionado;
 - agendamento de timeout e effect;
 - ocorrencia de timeout deve gerar evento;
+- timeout de attempt deve gerar `attempt.timed_out` ou evento equivalente
+  versionado que carregue `attempt_ref`;
 - timeout nao implica automaticamente retry;
 - timeout de capability obrigatoria pode levar a `failed` ou `blocked`;
 - timeout aguardando aprovacao pode manter `requires_approval`, cancelar ou
   bloquear conforme policy;
 - resultado tardio apos timeout deve ser tratado como evento separado e nao
-  deve sobrescrever estado terminal sem regra explicita.
+  deve sobrescrever estado terminal sem regra explicita;
+- late result deve gerar evento `attempt.late_result.observed` ou equivalente
+  versionado e referenciar o evento terminal anterior.
 
 ## Recovery
 
@@ -1047,6 +1077,37 @@ produzirem eventos. Runtime Context participa de decisoes por referencias
 versionadas.
 
 O estado materializado e uma projecao reconstruivel, nao autoridade primaria.
+
+## Contratos minimos complementares
+
+A arquitetura ja separa State Machine, Commands, Events, Effects e Runtime
+Context, mas nem todos esses objetos possuem contrato proprio nesta fase.
+
+`CommandContract.md` ja define identidade, versionamento, causalidade,
+idempotencia, relacao com eventos e relacao com effects sem definir transporte,
+API, storage ou framework.
+
+`EffectContract.md` ja define effects declarados como separacao entre decisao
+deterministica e trabalho externo, sem implementar effect runner.
+
+`RuntimeContextContract.md` ja define os inputs versionados disponiveis para
+avaliacao de commands e declaracao de events ou effects.
+
+`AttemptContract.md` ja define identidade e correlacao de tentativas para
+retries, timeouts e resultados tardios, sem implementar runner, scheduler ou
+storage.
+
+Antes de uma implementacao executavel com approvals ou memoria decisiva, ainda
+devem existir especificacoes arquiteturais minimas para:
+
+- `ApprovalContract`: necessario para representar aprovacao humana sem
+  transformar policy, evento ou estado em sistema de autorizacao implicito.
+- `MemoryReferenceContract`: necessario apenas se Memory passar a influenciar
+  decisoes; sem ele, Memory deve permanecer contexto informativo.
+
+Esses contratos nao introduzem componentes novos. Eles formalizam objetos que
+ja existem conceitualmente na maquina de estados e evitam que uma implementacao
+preencha lacunas com comportamento implicito.
 
 ## Relacao com componentes
 
@@ -1096,7 +1157,6 @@ resultado e derivavel de eventos e artefatos.
 - Definir catalogo final de eventos de transicao.
 - Definir versao propria da State Machine.
 - Definir politica de migracao entre versoes de maquina.
-- Definir representacao final de attempts para retries.
 - Definir formato de timeout e deadline sem implementar scheduler.
 - Definir como reconciliar effects pendentes durante recovery.
 - Definir quando `blocked` deve virar `failed`.

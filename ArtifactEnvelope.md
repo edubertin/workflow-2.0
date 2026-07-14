@@ -245,8 +245,9 @@ Regras:
 - eventos devem referenciar `artifact_id` e `artifact_version`;
 - `ExecutionResult` deve referenciar artefatos por identidade e status, nao
   duplicar conteudo;
-- mudancas no conteudo podem exigir novo artefato ou novo mecanismo futuro de
-  revisao, mas nao devem alterar retroativamente a semantica do envelope.
+- mudancas no conteudo exigem novo `artifact_id` nesta versao inicial;
+- substituicao de conteudo deve ser registrada por evento e pelo status
+  `superseded` no artefato anterior, sem reescrever o historico.
 
 Mudancas compativeis:
 
@@ -493,8 +494,6 @@ contrato apropriado e ser apenas referenciada pelo artefato quando permitido.
 
 ## Pontos em aberto
 
-- Definir se artefatos terao versao propria de conteudo alem de
-  `artifact_version`.
 - Definir lifecycle completo para `superseded` e `rejected`.
 - Definir como representar relacao entre artefato substituto e substituido.
 - Definir catalogo final de `artifact_type`.
