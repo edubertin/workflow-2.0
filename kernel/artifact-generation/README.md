@@ -73,4 +73,6 @@ Regras:
 - artefatos devem estar associados a task, capability, executor e trace;
 - artefatos devem ter status claro;
 - artefatos duraveis sao fonte de verdade;
+- mudanca de conteudo gera novo `artifact_id` nesta versao inicial;
+- substituicao deve ser auditada por evento e status `superseded`;
 - memoria e conversa nao substituem artefatos versionaveis.

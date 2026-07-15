@@ -184,8 +184,7 @@ Responsabilidades:
 
 - consultar Registry por `capability_id`;
 - obter candidatos compativeis por capacidade;
-- descartar candidatos incompativeis com contrato, policy ou constraints;
-- registrar candidatos considerados.
+- registrar candidatos considerados e descartes produzidos pelo lookup.
 
 Eventos esperados:
 
@@ -204,12 +203,15 @@ O Registry devolveu candidatos suficientes para avaliacao.
 
 Responsabilidades:
 
-- aplicar criterios objetivos de selecao;
-- ordenar candidatos por criterios declarados;
+- aplicar eligibility conforme `ExecutorSelectionContract.md`;
+- ordenar candidatos elegiveis por selection rule versionada;
 - registrar a razao da escolha;
 - registrar todas as alternativas descartadas;
 - registrar a razao de descarte de cada candidato;
 - registrar as versoes de inputs usadas na decisao.
+
+Constraints de policy aplicadas nesta etapa devem seguir
+`PolicyConstraintsContract.md`.
 
 Criterios permitidos:
 
@@ -233,8 +235,9 @@ Criterios proibidos:
 - prompt nao registrado;
 - memoria nao referenciada por policy.
 
-Evento esperado:
+Eventos esperados:
 
+- `execution.executor.selection.started`
 - `execution.executor.selected`
 
 ### executor_selecting -> running
@@ -296,7 +299,8 @@ Responsabilidades:
 - derivar status global;
 - anexar referencias de artefatos;
 - anexar eventos relevantes;
-- registrar decisoes e pendencias;
+- anexar referencias versionadas de decisoes;
+- registrar pendencias;
 - construir `ExecutionResult`.
 
 Evento esperado:
@@ -320,7 +324,7 @@ Evento esperado:
 
 ## Selecao de executor sem conhecer agentes
 
-O Execution Engine seleciona um executor a partir de metadados devolvidos pelo Registry.
+O Execution Engine seleciona um executor a partir de metadados devolvidos pelo Registry, conforme `ExecutorSelectionContract.md`.
 
 O Registry pode saber que um executor e um agente, servico, humano, codigo local ou adaptador externo. O kernel nao usa essa identidade como semantica de roteamento.
 
@@ -345,6 +349,19 @@ Metadados aceitaveis para decisao:
 
 Todos esses metadados devem vir de um snapshot versionado do Registry. O engine nao pode consultar estado vivo do executor durante a decisao sem registrar essa consulta como input versionado ou evento de snapshot.
 
+A selecao deve preservar a distincao entre discovery, eligibility, ranking,
+selection e invocation:
+
+- discovery pertence ao Registry lookup;
+- eligibility elimina candidatos incompativeis;
+- ranking ordena candidatos elegiveis por regra versionada;
+- selection escolhe exatamente um candidato;
+- invocation ocorre somente depois da selecao.
+
+A ordem original dos candidatos no Registry nao pode ser usada como criterio de
+desempate. O engine deve aplicar regra de ordenacao total versionada e
+desempate final por identidade canonica versionada.
+
 Metadados nao aceitaveis como criterio:
 
 - persona;
@@ -367,6 +384,10 @@ Toda selecao de executor deve registrar:
 - criterio deterministico de desempate, quando houver empate.
 
 Nao existe selecao valida com apenas "executor escolhido". A decisao precisa preservar o conjunto de alternativas descartadas para permitir auditoria e reproducao historica.
+
+Quando o Registry lookup retorna conjunto vazio, a selecao nao inicia. O
+bloqueio deve referenciar a decisao de `registry_lookup`, nao uma decisao de
+`executor_selection`.
 
 ## Tratamento de falhas
 
@@ -504,6 +525,10 @@ Evidencias:
 - artefatos validados;
 - falhas e bloqueios.
 
+O `ExecutionResult` deve conter referencias versionadas para eventos,
+decisoes e artefatos usados na consolidacao. Ele nao pode introduzir decisao
+nova que nao exista em evento ou artefato referenciado.
+
 O status global deve obedecer:
 
 - `succeeded`: todas as capacidades obrigatorias cumpriram criterios de sucesso;
@@ -516,9 +541,9 @@ O status global deve obedecer:
 ## Pontos em aberto
 
 - Definir formato final dos eventos.
-- Definir como Policies expressam constraints deterministicas.
-- Definir algoritmo declarativo de ranking de candidatos.
-- Definir formato do snapshot versionado do Registry.
+- Definir catalogo completo de permissoes e side effects usados por
+  constraints.
+- Definir formato executavel futuro da selection rule declarada em `ExecutorSelectionContract.md`.
 - Definir como versionar Policies e criterios de ranking.
 - Definir quando retry e permitido por contrato.
 - Definir como approvals humanos entram no estado do engine.

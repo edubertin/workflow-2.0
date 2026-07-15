@@ -25,7 +25,7 @@ Uma capacidade e um contrato versionado que descreve:
 
 ```yaml
 capability_id: "domain.action"
-version: "0.1.0"
+capability_version: "0.1.0"
 title: "Nome humano curto"
 description: "Descricao objetiva do trabalho"
 owner: "equipe-ou-area"
@@ -230,7 +230,7 @@ Eventos devem ser seguros para observabilidade.
 
 ```yaml
 capability_id: "documentation.architecture.update"
-version: "0.1.0"
+capability_version: "0.1.0"
 title: "Atualizar documentacao arquitetural"
 description: "Revisar e atualizar documentos arquiteturais sem implementar codigo"
 input:

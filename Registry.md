@@ -14,7 +14,7 @@ Toda resposta do Registry deve ser deterministica, versionada e auditavel.
 
 Uma mesma consulta contra o mesmo snapshot do Registry deve retornar o mesmo conjunto de registros, na mesma ordem deterministica, com os mesmos metadados.
 
-O Registry nao decide quem executa. Ele fornece candidatos e metadados. A selecao pertence ao `ExecutionEngine`, sob restricoes do `PolicyEngine`.
+O Registry nao decide quem executa. Ele fornece candidatos e metadados. A selecao pertence ao `ExecutionEngine`, sob restricoes do `PolicyEngine` e conforme `ExecutorSelectionContract.md`.
 
 ## Registry versus CapabilityContract
 
@@ -189,26 +189,26 @@ Regras:
 
 ## Snapshots
 
-Snapshot e uma visao imutavel do Registry em um momento logico.
+Snapshot e um objeto imutavel, versionado e referenciavel definido por
+`RegistrySnapshotContract.md`.
 
-Metadados obrigatorios:
+O Registry pode produzir ou ler snapshots, mas a semantica normativa de
+identidade, escopo, records, canonicalizacao, digest, invalidade e replay fica
+em `RegistrySnapshotContract.md`.
 
-```yaml
-registry_snapshot_id: "registry_snapshot_ulid_or_uuid"
-registry_snapshot_version: "0.1.0"
-created_at: "iso-8601"
-records:
-  - record_id: "record_ulid_or_uuid"
-    record_version: "record_version"
-```
+Um snapshot pode representar o Registry completo ou um recorte
+`lookup_scoped`, desde que o escopo e os criterios do lookup estejam
+registrados no snapshot.
 
 Regras:
 
 - consultas do `ExecutionEngine` devem usar snapshot;
-- eventos devem referenciar `registry_snapshot_id`;
+- eventos devem referenciar `registry_snapshot_id`,
+  `registry_snapshot_version` e `snapshot_digest`;
 - snapshot nao muda depois de criado;
 - snapshot deve permitir reproduzir resultados de consulta;
-- se snapshot nao existir, a decisao nao e historicamente reproduzivel.
+- se snapshot nao existir, a decisao nao e historicamente reproduzivel;
+- snapshot vazio valido e diferente de lookup incompleto, truncado ou falho.
 
 ## Consultas permitidas
 
@@ -237,7 +237,7 @@ Consultas proibidas:
 - ordenar por criterio nao declarado;
 - consultar estado vivo sem snapshot.
 
-O Registry pode ordenar resultados apenas por regra deterministica registrada, como id, versao, status e prioridade declarada. Se houver ranking operacional, o criterio deve ser versionado e auditavel.
+O Registry pode ordenar resultados apenas por regra deterministica registrada, como id, versao, status e prioridade declarada. Essa ordem nao e autoridade para selecao final. A selecao deve tratar os candidatos como conjunto canonico e aplicar `ExecutorSelectionContract.md`.
 
 ## Invariantes
 
@@ -293,9 +293,35 @@ O `ExecutionEngine` deve:
 - registrar o snapshot usado;
 - registrar candidatos considerados;
 - registrar candidatos descartados;
-- selecionar com criterios deterministas;
+- selecionar com criterios deterministas definidos em `ExecutorSelectionContract.md`;
 - nunca pedir ao Registry "quem deve executar";
 - nunca usar persona como criterio de selecao.
+
+## Relacao com ExecutorSelectionContract
+
+`ExecutorSelectionContract.md` define eligibility, ranking, desempate,
+candidatos considerados, descartes e candidato selecionado.
+
+O Registry fornece somente:
+
+- snapshot id e versao;
+- snapshot digest e schema version;
+- registros de candidatos;
+- metadados versionados;
+- compatibility records;
+- descartes de lookup, quando houver.
+
+O Registry nao define:
+
+- regra de ranking operacional;
+- ordenacao total de elegiveis;
+- desempate final;
+- candidato selecionado;
+- bloqueio por empate irresoluvel.
+
+Quando o lookup retorna conjunto vazio, o Registry deve registrar
+`registry.lookup.no_candidate` com o conjunto considerado vazio. Isso nao cria
+uma selecao de executor.
 
 ## Relacao com PolicyEngine
 
@@ -332,11 +358,16 @@ registry.record.discarded
 Evento de lookup deve registrar:
 
 - `registry_snapshot_id`;
+- `registry_snapshot_version`;
+- `registry_snapshot_schema_version`;
+- `snapshot_digest`;
+- escopo e criterios de lookup;
 - `trace_id`;
 - `task_id`;
 - `capability_id`;
 - `capability_version`;
-- registros retornados;
+- command id e versao que iniciou o lookup;
+- registros retornados em ordem canonica;
 - registros descartados;
 - motivo seguro de descarte;
 - regra deterministica de ordenacao.
@@ -363,7 +394,7 @@ Falha fechada significa devolver nenhum candidato valido e registrar evento segu
 - Definir formato final de `registry_record_version`.
 - Definir formato final de `registry_snapshot_id`.
 - Definir taxonomia inicial de `candidate_type`.
-- Definir regras de prioridade declarada sem virar selecao.
+- Definir algoritmo criptografico final para `snapshot_digest`.
 - Definir ciclo de vida de registros deprecated e disabled.
 - Definir como compatibilidade sera validada sem implementar runtime.
 - Definir catalogo inicial de metadados obrigatorios por tipo operacional.

@@ -36,8 +36,17 @@ capability_results:
     summary: "Resumo do resultado da capacidade"
 artifacts:
   - artifact_id: "artifact_ulid_or_uuid"
+    artifact_version: "0.1.0"
     artifact_type: "document|decision|plan|patch|report|trace|manifest"
     status: "draft|proposed|final|superseded|rejected"
+event_refs:
+  - event_id: "event_ulid_or_uuid"
+    event_version: "0.1.0"
+    event_type: "execution.completed"
+decision_refs:
+  - kind: "policy|registry_lookup|executor_selection|artifact_validation|result"
+    id: "decision_or_event_id"
+    version: "decision_or_event_version"
 completed_at: "iso-8601"
 ```
 
@@ -46,19 +55,16 @@ completed_at: "iso-8601"
 ```yaml
 started_at: "iso-8601"
 duration_ms: 1234
-events:
-  - event_id: "event_ulid_or_uuid"
-    type: "capability.execution.completed"
-decisions:
-  - "decisao tomada durante a execucao"
 pending:
   - "pendencia ou pergunta aberta"
 errors:
   - code: "error_code"
     message: "mensagem segura"
     retryable: false
-policy_outcome:
-  status: "allowed|denied|requires_approval|allowed_with_constraints"
+policy_outcomes:
+  - decision_id: "decision_policy_01JABC"
+    decision_version: "0.1.0"
+    outcome: "allow|deny|requires_approval|allow_with_constraints"
 ```
 
 ## Invariantes
@@ -68,9 +74,16 @@ policy_outcome:
 - `status` global deve ser derivado dos `capability_results`.
 - Se qualquer capacidade obrigatoria falhar, o status global nao pode ser `succeeded`.
 - `artifacts` deve conter referencias a `Artifact Envelope v0`, nao conteudo duplicado.
+- Cada referencia em `artifacts` deve conter `artifact_id` e `artifact_version`.
+- `event_refs` deve conter os eventos decisivos usados para derivar o status global.
+- `decision_refs` deve conter referencias versionadas para decisoes de policy, selecao, validacao ou resultado que afetaram o fechamento.
+- Quando status, erro, timeout, cancelamento ou late result depender de tentativa concreta, `event_refs` deve incluir eventos com `attempt_ref`; este contrato nao adiciona campo `attempt_refs` nesta versao.
 - Erros devem ser seguros e nao devem expor secrets, payloads privados ou stack traces longos.
 - `ExecutionResult` nao pode alterar retrospectivamente o `CapabilityPlan`.
 - Decisoes duraveis devem tambem existir como artefato `decision` quando forem fonte de verdade.
+- `ExecutionResult` nao pode introduzir decisao nova que nao esteja em evento ou artefato referenciado.
+- Se `status` for `succeeded`, deve existir evento terminal `execution.completed`.
+- Se `status` for `failed`, `blocked`, `cancelled`, `partial` ou `requires_approval`, deve existir evento terminal ou bloqueante correspondente.
 
 ## Relacao com Artifact Envelope
 
@@ -83,6 +96,7 @@ Exemplo de relacao:
 ```yaml
 artifacts:
   - artifact_id: "artifact_01JABC"
+    artifact_version: "0.1.0"
     artifact_type: "document"
     status: "final"
 ```
@@ -118,14 +132,28 @@ capability_results:
     summary: "TaskEnvelope, CapabilityPlan e ExecutionResult foram documentados."
 artifacts:
   - artifact_id: "artifact_task_envelope"
+    artifact_version: "0.1.0"
     artifact_type: "document"
     status: "final"
   - artifact_id: "artifact_capability_plan"
+    artifact_version: "0.1.0"
     artifact_type: "document"
     status: "final"
   - artifact_id: "artifact_execution_result"
+    artifact_version: "0.1.0"
     artifact_type: "document"
     status: "final"
+event_refs:
+  - event_id: "event_capability_completed"
+    event_version: "0.1.0"
+    event_type: "capability.execution.completed"
+  - event_id: "event_result_completed"
+    event_version: "0.1.0"
+    event_type: "execution.completed"
+decision_refs:
+  - kind: "result"
+    id: "event_result_completed"
+    version: "0.1.0"
 completed_at: "2026-07-10T12:30:00Z"
 ```
 
@@ -134,6 +162,7 @@ Por que e valido:
 - referencia task, plan e trace;
 - status global e coerente com resultados das capacidades;
 - artefatos aparecem como referencias, nao como conteudo duplicado;
+- artefatos e eventos referenciados possuem versao;
 - resumo e seguro e auditavel.
 
 ## Exemplo invalido
@@ -162,5 +191,8 @@ Por que e invalido:
 - falta `plan_id`;
 - status global `succeeded` contradiz capacidade `failed`;
 - `artifacts` embute conteudo que pertence ao `Artifact Envelope`;
+- falta `artifact_version` na referencia do artefato;
+- falta `event_refs` para justificar o fechamento;
+- falta `decision_refs` para decisoes relevantes;
 - o resumo e vago;
 - falta `artifact_type` e `status` na referencia do artefato.

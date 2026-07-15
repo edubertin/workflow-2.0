@@ -50,7 +50,10 @@ priority: "low|normal|high|urgent"
 deadline: "iso-8601"
 context_refs:
   - kind: "workspace|document|artifact|memory|external"
-    uri: "referencia-segura"
+    id: "context_ref_id"
+    version: "version_or_snapshot_id"
+    uri: "referencia-segura-opcional"
+    usage: "informational|decisive"
 expected_artifacts:
   - artifact_type: "document|decision|plan|patch|report|trace|manifest"
     title: "Nome esperado"
@@ -71,6 +74,12 @@ metadata:
 - Secrets, credenciais e payloads privados nao devem aparecer em `intent.raw` nem em `context_refs`.
 - `scope.include` e `scope.exclude` devem reduzir ambiguidade operacional.
 - `expected_artifacts` declara expectativas, nao artefatos produzidos.
+- Todo `context_ref` usado para decisao deve ter `id` e `version` ou snapshot.
+- `context_ref.usage: decisive` exige referencia versionada e evento que registre seu uso.
+- `context_ref.usage: informational` pode orientar leitura humana, mas nao pode determinar plano, policy, selecao de executor ou resultado.
+- `deadline` e `priority`, quando influenciarem timeout, retry ou ordenacao, sao inputs decisivos da propria `TaskEnvelope`.
+- Alterar objetivo, escopo, restricoes, side effects, deadline ou contexto decisivo exige nova `task_version` ou nova task.
+- `policy_hints` sao pistas de avaliacao, nao outcome de policy.
 
 ## Relacao com Artifact Envelope
 

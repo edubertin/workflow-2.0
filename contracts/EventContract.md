@@ -62,13 +62,13 @@ producer:
   component: "runtime|policies|registry|capability|artifact_generation|observability"
   version: "component_version"
 subject:
-  kind: "task|plan|policy|registry|executor_selection|capability|artifact|result"
+  kind: "task|plan|policy|registry|executor_selection|capability|attempt|artifact|result"
   id: "subject_id"
 decision:
-  kind: "none|state_transition|selection|policy_outcome|validation|failure|result"
-  outcome: "accepted|allowed|denied|selected|rejected|blocked|failed|succeeded|partial|cancelled|requires_approval"
+  kind: "none|state_transition|selection|registry_lookup|policy_outcome|validation|failure|result"
+  outcome: "accepted|allowed|allowed_with_constraints|denied|selected|rejected|no_candidate|blocked|failed|succeeded|partial|cancelled|requires_approval|timed_out|late_result_observed"
 input_refs:
-  - kind: "task|plan|capability_contract|policy|registry_snapshot|artifact|memory|executor_metadata"
+  - kind: "task|plan|capability_contract|policy|registry_snapshot|artifact|memory|executor_metadata|command|effect|attempt|runtime_context"
     id: "input_id"
     version: "input_version_or_snapshot"
 summary: "mensagem curta e segura"
@@ -86,6 +86,15 @@ capability_ref:
 executor_ref:
   executor_id: "opaque_executor_id"
   metadata_version: "executor_metadata_version"
+attempt_ref:
+  attempt_id: "attempt_stable_id"
+  attempt_version: "0.1.0"
+  attempt_number: 1
+  effect_id: "effect_stable_id"
+  effect_version: "0.1.0"
+  command_id: "command_stable_id"
+  command_version: "0.1.0"
+  previous_attempt_id: "attempt_stable_id_or_null"
 alternatives:
   considered:
     - id: "candidate_id"
@@ -162,6 +171,8 @@ Sem inputs versionados, o evento nao sustenta reprodutibilidade historica.
 - Eventos de selecao devem registrar alternativas consideradas e descartadas.
 - Eventos de falha devem registrar codigo seguro e status resultante.
 - Eventos que apontam para artefatos devem usar `artifact_refs`, nao embutir conteudo.
+- Eventos de attempt devem carregar `attempt_ref` com attempt, effect e command
+  versionados.
 - Eventos nao podem depender de estado `latest` para serem compreendidos historicamente.
 - Eventos nao podem conter dados que violem policies de seguranca ou privacidade.
 
@@ -177,7 +188,8 @@ Regras:
 - eventos devem referenciar artefatos por `artifact_id` e `artifact_version`;
 - decisoes duraveis devem apontar para artefato do tipo `decision` quando existir;
 - validacoes de artefato devem registrar `artifact.validation.status`;
-- `ExecutionResult.artifacts` deve ser coerente com os eventos que registraram artefatos produzidos ou validados.
+- `ExecutionResult.artifacts` deve ser coerente com os eventos que registraram artefatos produzidos ou validados;
+- `ExecutionResult.event_refs` deve referenciar eventos decisivos por `event_id` e `event_version`.
 
 ## Regras de imutabilidade
 
@@ -208,6 +220,14 @@ Eventos que registram decisoes devem incluir:
 - outcome;
 - motivo seguro;
 - artifact refs quando a decisao for duravel.
+
+Quando `decision.kind` for `policy_outcome`, o outcome generico do evento deve
+mapear o outcome normativo de Policy sem substituir seu vocabulario:
+
+- Policy `allow` -> Event `allowed`;
+- Policy `allow_with_constraints` -> Event `allowed_with_constraints`;
+- Policy `deny` -> Event `denied`;
+- Policy `requires_approval` -> Event `requires_approval`.
 
 Exemplos de decisoes:
 
@@ -260,11 +280,19 @@ execution.plan.resolution.started
 execution.plan.resolution.completed
 policy.check.completed
 registry.lookup.completed
+registry.lookup.no_candidate
 execution.executor.selected
 execution.context.prepared
 capability.execution.started
 capability.execution.completed
 capability.execution.failed
+attempt.declared
+attempt.started
+attempt.completed
+attempt.failed
+attempt.timed_out
+attempt.cancelled
+attempt.late_result.observed
 artifact.validation.completed
 execution.result.consolidation.completed
 execution.completed
