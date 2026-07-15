@@ -333,6 +333,14 @@ interpretation in code.
     candidate before ranking, and inverted Registry enumerations produce the
     same fingerprint.
 
+24. Targeted PR alignment fixes applied.
+    Registry snapshots in the skeleton now carry explicit `registry_source_ref`
+    and compute `snapshot_digest` from schema, source ref, scope, lookup
+    criteria and canonical records. Event outcomes explicitly map Policy
+    `allow_with_constraints` to generic Event `allowed_with_constraints`.
+    Commands now materialize `effect_request` for external effects and the
+    harness verifies Command -> Effect correspondence.
+
 ## Last Work Completed
 
 The latest walking skeleton implementation added deterministic Policy
@@ -351,6 +359,8 @@ Implemented behavior:
   digest field;
 - Registry lookup runs against explicit snapshot
   `registry_snapshot_policy_constraints_001@0.1.0`;
+- Registry snapshot digest includes source ref, scope, lookup criteria and
+  canonical records, while excluding snapshot id and the digest itself;
 - Registry lookup discovers both candidates and does not apply constraint
   pushdown;
 - candidates are

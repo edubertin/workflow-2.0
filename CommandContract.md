@@ -98,6 +98,15 @@ input_refs:
   - kind: "task|plan|capability_contract|policy_decision|registry_snapshot|artifact|event|executor_metadata|runtime_context"
     id: "input_id"
     version: "input_version_or_snapshot"
+effect_request:
+  - effect_type: "policy.evaluate|registry.lookup|executor.invoke|artifact.validate|result.consolidate"
+    effect_version: "0.1.0"
+    side_effects:
+      - "read|write|network|external_state|destructive"
+    input_refs:
+      - kind: "task|plan|policy_decision|registry_snapshot|artifact|event|executor_metadata|runtime_context"
+        id: "input_id"
+        version: "input_version_or_snapshot"
 intent:
   action: "requested_action"
   reason: "motivo seguro"
@@ -349,17 +358,26 @@ capability_ref:
 
 ### effect_request
 
-Obrigatorio quando o command pode declarar effect.
+Obrigatorio em todo command. Commands puramente internos devem usar
+`effect_request: []`. Commands capazes de declarar trabalho externo devem listar
+o effect solicitado usando o vocabulario canonico de `EffectContract.md`.
 
 ```yaml
 effect_request:
-  effect_type: "invoke_executor|query_registry|evaluate_policy|validate_artifact|emit_result"
-  side_effects:
-    - "read|write|network|external_state|destructive"
+  - effect_type: "policy.evaluate|registry.lookup|executor.invoke|artifact.validate|result.consolidate"
+    effect_version: "0.1.0"
+    side_effects:
+      - "read|write|network|external_state|destructive"
+    input_refs:
+      - kind: "task|plan|policy_decision|registry_snapshot|artifact|event|executor_metadata|runtime_context"
+        id: "input_id"
+        version: "input_version_or_snapshot"
 ```
 
-`effect_request` nao executa o effect. Ele apenas declara que a transicao pode
-resultar em um effect se a State Machine aceitar o command.
+`effect_request` nao executa o effect e nao e o proprio `Effect`. Ele apenas
+declara que a transicao pode resultar em um effect se a State Machine aceitar o
+command. Um `Effect` produzido deve referenciar o command iniciador, e um
+`Attempt` futuro executara exatamente um `Effect`.
 
 ### artifact_refs
 
@@ -576,6 +594,9 @@ isolado.
 - Todo command deve ter `requested_by.kind` valido para a versao do contrato.
 - Todo command deve ter alvo identificado.
 - Todo command decisivo deve referenciar inputs versionados.
+- Todo command deve ter `effect_request`, mesmo que seja lista vazia.
+- Todo `effect_request.effect_type` deve usar o vocabulario de
+  `EffectContract.md`.
 - Todo command deve ter chave de idempotencia.
 - Nenhum command pode produzir estado sem evento correspondente.
 - Nenhum command pode executar effect diretamente.

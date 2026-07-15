@@ -66,7 +66,7 @@ subject:
   id: "subject_id"
 decision:
   kind: "none|state_transition|selection|registry_lookup|policy_outcome|validation|failure|result"
-  outcome: "accepted|allowed|denied|selected|rejected|no_candidate|blocked|failed|succeeded|partial|cancelled|requires_approval|timed_out|late_result_observed"
+  outcome: "accepted|allowed|allowed_with_constraints|denied|selected|rejected|no_candidate|blocked|failed|succeeded|partial|cancelled|requires_approval|timed_out|late_result_observed"
 input_refs:
   - kind: "task|plan|capability_contract|policy|registry_snapshot|artifact|memory|executor_metadata|command|effect|attempt|runtime_context"
     id: "input_id"
@@ -220,6 +220,14 @@ Eventos que registram decisoes devem incluir:
 - outcome;
 - motivo seguro;
 - artifact refs quando a decisao for duravel.
+
+Quando `decision.kind` for `policy_outcome`, o outcome generico do evento deve
+mapear o outcome normativo de Policy sem substituir seu vocabulario:
+
+- Policy `allow` -> Event `allowed`;
+- Policy `allow_with_constraints` -> Event `allowed_with_constraints`;
+- Policy `deny` -> Event `denied`;
+- Policy `requires_approval` -> Event `requires_approval`.
 
 Exemplos de decisoes:
 

@@ -135,6 +135,7 @@ interface Command {
     readonly caused_by_command_id: string | null;
   };
   readonly input_refs: readonly VersionedRef[];
+  readonly effect_request: readonly EffectRequest[];
   readonly intent: {
     readonly action: string;
     readonly reason: string;
@@ -143,6 +144,13 @@ interface Command {
     readonly key: string;
     readonly scope: "trace" | "task" | "target";
   };
+}
+
+interface EffectRequest {
+  readonly effect_type: EffectType;
+  readonly effect_version: Version;
+  readonly side_effects: readonly SideEffect[];
+  readonly input_refs: readonly VersionedRef[];
 }
 
 interface RuntimeContext {
@@ -245,6 +253,7 @@ interface RegistryEventRef {
   readonly registry_snapshot_id: string;
   readonly registry_snapshot_version: Version;
   readonly registry_snapshot_schema_version: Version;
+  readonly registry_source_ref: RegistrySourceRef;
   readonly registry_snapshot_digest: string;
   readonly snapshot_scope: SnapshotScope;
   readonly lookup_criteria: LookupCriteria;
@@ -423,6 +432,12 @@ interface PolicyDecision {
   readonly constraint_set?: PolicyConstraintSet;
 }
 
+interface RegistrySourceRef {
+  readonly source_id: "registry_source.walking_skeleton.static";
+  readonly source_version: Version;
+  readonly source_digest: string;
+}
+
 interface RegistryLookup {
   readonly lookup_id: string;
   readonly lookup_version: Version;
@@ -431,6 +446,7 @@ interface RegistryLookup {
   readonly registry_snapshot_id: string;
   readonly registry_snapshot_version: Version;
   readonly registry_snapshot_schema_version: Version;
+  readonly registry_source_ref: RegistrySourceRef;
   readonly registry_snapshot_digest: string;
   readonly snapshot_scope: SnapshotScope;
   readonly lookup_criteria: LookupCriteria;
@@ -608,6 +624,7 @@ interface ExecutorSelectionEventRef {
   readonly registry_snapshot_id: string;
   readonly registry_snapshot_version: Version;
   readonly registry_snapshot_schema_version: Version;
+  readonly registry_source_ref: RegistrySourceRef;
   readonly registry_snapshot_digest: string;
   readonly snapshot_scope: SnapshotScope;
   readonly lookup_criteria: LookupCriteria;
@@ -663,6 +680,7 @@ interface WalkingSkeletonRun {
   readonly plan: CapabilityPlan;
   readonly commands: readonly Command[];
   readonly runtime_contexts: readonly RuntimeContext[];
+  readonly registry_lookups: readonly RegistryLookup[];
   readonly effects: readonly Effect[];
   readonly events: readonly WorkflowEvent[];
   readonly artifacts: readonly ArtifactEnvelope[];
@@ -683,6 +701,8 @@ interface ScenarioVerification {
   readonly executor_effect_absent: boolean;
   readonly attempt_events_absent: boolean;
   readonly output_artifacts_absent: boolean;
+  readonly effect_request_correspondence_ok: boolean;
+  readonly outcome_contract_ok: boolean;
   readonly first_fingerprint: string;
   readonly second_fingerprint: string;
   readonly event_sequence: readonly EventType[];
@@ -704,6 +724,17 @@ interface WalkingSkeletonDemo {
   readonly registry_mixed_order_independence: MixedEligibilityOrderIndependenceVerification;
   readonly registry_equal_rank_tiebreaker: ScenarioVerification;
   readonly registry_tiebreaker_order_independence: TieBreakerOrderIndependenceVerification;
+  readonly registry_snapshot_digest_rules: RegistrySnapshotDigestVerification;
+}
+
+interface RegistrySnapshotDigestVerification {
+  readonly passed: boolean;
+  readonly same_digest_for_inverted_order: boolean;
+  readonly changed_source_ref_changes_digest: boolean;
+  readonly changed_digestible_field_changes_digest: boolean;
+  readonly digest_input_excludes_snapshot_digest: boolean;
+  readonly forward_digest: string;
+  readonly reversed_digest: string;
 }
 
 interface RegistryOrderIndependenceVerification {
@@ -1048,6 +1079,7 @@ export function runWalkingSkeletonDemo(): WalkingSkeletonDemo {
   const registryMixedOrderIndependence = verifyRegistryMixedEligibilityOrderIndependence();
   const registryEqualRankTieBreaker = verifyScenario("registry_equal_rank_tiebreaker");
   const registryTieBreakerOrderIndependence = verifyRegistryTieBreakerOrderIndependence();
+  const registrySnapshotDigestRules = verifyRegistrySnapshotDigestRules();
   return {
     passed: allow.passed
       && allowWithConstraints.passed
@@ -1060,7 +1092,8 @@ export function runWalkingSkeletonDemo(): WalkingSkeletonDemo {
       && registryMixedEligibility.passed
       && registryMixedOrderIndependence.passed
       && registryEqualRankTieBreaker.passed
-      && registryTieBreakerOrderIndependence.passed,
+      && registryTieBreakerOrderIndependence.passed
+      && registrySnapshotDigestRules.passed,
     allow,
     allow_with_constraints: allowWithConstraints,
     policy_constraints_order_independence: policyConstraintsOrderIndependence,
@@ -1072,7 +1105,8 @@ export function runWalkingSkeletonDemo(): WalkingSkeletonDemo {
     registry_mixed_eligibility: registryMixedEligibility,
     registry_mixed_order_independence: registryMixedOrderIndependence,
     registry_equal_rank_tiebreaker: registryEqualRankTieBreaker,
-    registry_tiebreaker_order_independence: registryTieBreakerOrderIndependence
+    registry_tiebreaker_order_independence: registryTieBreakerOrderIndependence,
+    registry_snapshot_digest_rules: registrySnapshotDigestRules
   };
 }
 
@@ -1375,6 +1409,57 @@ export function verifyPolicyConstraintsOrderIndependence(): PolicyConstraintsOrd
   };
 }
 
+export function verifyRegistrySnapshotDigestRules(): RegistrySnapshotDigestVerification {
+  const task = createWalkingSkeletonTask("registry_multiple_eligible");
+  const forward = runWalkingSkeleton("registry_multiple_eligible", task, "declared");
+  const reversed = runWalkingSkeleton("registry_multiple_eligible", task, "reversed");
+  const forwardLookup = requireRunRegistryLookup(forward);
+  const reversedLookup = requireRunRegistryLookup(reversed);
+  const changedSourceRef: RegistrySourceRef = {
+    ...forwardLookup.registry_source_ref,
+    source_version: "0.1.0",
+    source_digest: stableId("registry_source_digest", ["walking_skeleton.registry", "0.1.0", "changed"])
+  };
+  const changedScope: SnapshotScope = {
+    ...forwardLookup.snapshot_scope,
+    description: `${forwardLookup.snapshot_scope.description} changed`
+  };
+  const sourceChangedDigest = snapshotDigestFor(
+    changedSourceRef,
+    forwardLookup.snapshot_scope,
+    forwardLookup.lookup_criteria,
+    forwardLookup.candidates
+  );
+  const digestibleFieldChangedDigest = snapshotDigestFor(
+    forwardLookup.registry_source_ref,
+    changedScope,
+    forwardLookup.lookup_criteria,
+    forwardLookup.candidates
+  );
+  const digestInput = canonicalStringify(registrySnapshotDigestInput(
+    forwardLookup.registry_source_ref,
+    forwardLookup.snapshot_scope,
+    forwardLookup.lookup_criteria,
+    forwardLookup.candidates
+  ));
+  const sameDigestForInvertedOrder = forwardLookup.registry_snapshot_digest === reversedLookup.registry_snapshot_digest;
+  const changedSourceRefChangesDigest = sourceChangedDigest !== forwardLookup.registry_snapshot_digest;
+  const changedDigestibleFieldChangesDigest = digestibleFieldChangedDigest !== forwardLookup.registry_snapshot_digest;
+  const digestInputExcludesSnapshotDigest = !digestInput.includes("snapshot_digest");
+  return {
+    passed: sameDigestForInvertedOrder
+      && changedSourceRefChangesDigest
+      && changedDigestibleFieldChangesDigest
+      && digestInputExcludesSnapshotDigest,
+    same_digest_for_inverted_order: sameDigestForInvertedOrder,
+    changed_source_ref_changes_digest: changedSourceRefChangesDigest,
+    changed_digestible_field_changes_digest: changedDigestibleFieldChangesDigest,
+    digest_input_excludes_snapshot_digest: digestInputExcludesSnapshotDigest,
+    forward_digest: forwardLookup.registry_snapshot_digest,
+    reversed_digest: reversedLookup.registry_snapshot_digest
+  };
+}
+
 function verifyScenario(scenario: WalkingSkeletonScenario): ScenarioVerification {
   const first = runWalkingSkeleton(scenario);
   const second = runWalkingSkeleton(scenario);
@@ -1392,6 +1477,8 @@ function verifyScenario(scenario: WalkingSkeletonScenario): ScenarioVerification
   const statusOk = first.result.status === expectedStatus;
   const eventSequenceOk = sameSequence(eventSequence, expectedSequence);
   const replayOk = first.replay_state === expectedReplayStateFor(scenario);
+  const effectRequestCorrespondenceOk = verifyEffectRequestCorrespondence(first);
+  const outcomeContractOk = verifyOutcomeContractCompatibility(first);
   const passed = deterministic
     && statusOk
     && eventSequenceOk
@@ -1400,7 +1487,9 @@ function verifyScenario(scenario: WalkingSkeletonScenario): ScenarioVerification
     && executorAbsenceOk
     && executorEffectAbsenceOk
     && attemptEventsAbsent
-    && outputArtifactsAbsent;
+    && outputArtifactsAbsent
+    && effectRequestCorrespondenceOk
+    && outcomeContractOk;
   return {
     scenario,
     passed,
@@ -1413,12 +1502,64 @@ function verifyScenario(scenario: WalkingSkeletonScenario): ScenarioVerification
     executor_effect_absent: executorEffectAbsent,
     attempt_events_absent: attemptEventsAbsent,
     output_artifacts_absent: outputArtifactsAbsent,
+    effect_request_correspondence_ok: effectRequestCorrespondenceOk,
+    outcome_contract_ok: outcomeContractOk,
     first_fingerprint: first.fingerprint,
     second_fingerprint: second.fingerprint,
     event_sequence: eventSequence,
     replay_state: first.replay_state,
     final_status: first.result.status
   };
+}
+
+function verifyEffectRequestCorrespondence(run: WalkingSkeletonRun): boolean {
+  const commandsById = new Map(run.commands.map((command) => [command.command_id, command]));
+  const effectsByCommand = new Map<string, Effect[]>();
+  for (const effect of run.effects) {
+    const effects = effectsByCommand.get(effect.command_ref.command_id) ?? [];
+    effects.push(effect);
+    effectsByCommand.set(effect.command_ref.command_id, effects);
+  }
+  const everyEffectHasCommandRequest = run.effects.every((effect) => {
+    const command = commandsById.get(effect.command_ref.command_id);
+    return command !== undefined
+      && command.command_version === effect.command_ref.command_version
+      && command.effect_request.some((request) =>
+        request.effect_type === effect.effect_type
+        && request.effect_version === effect.effect_version
+      );
+  });
+  const noEffectWithoutCommand = run.effects.every((effect) => commandsById.has(effect.command_ref.command_id));
+  const emptyRequestsHaveNoEffects = run.commands.every((command) =>
+    command.effect_request.length > 0 || (effectsByCommand.get(command.command_id) ?? []).length === 0
+  );
+  const producedEffectsWereRequested = run.commands.every((command) => {
+    const effects = effectsByCommand.get(command.command_id) ?? [];
+    return effects.every((effect) =>
+      command.effect_request.some((request) => request.effect_type === effect.effect_type)
+    );
+  });
+  return everyEffectHasCommandRequest
+    && noEffectWithoutCommand
+    && emptyRequestsHaveNoEffects
+    && producedEffectsWereRequested;
+}
+
+function verifyOutcomeContractCompatibility(run: WalkingSkeletonRun): boolean {
+  const eventOutcomes = [
+    "accepted",
+    "allowed",
+    "allowed_with_constraints",
+    "denied",
+    "selected",
+    "no_candidate",
+    "blocked",
+    "failed",
+    "succeeded"
+  ];
+  const policyOutcomes = ["allow", "deny", "requires_approval", "allow_with_constraints"];
+  return run.events.every((event) => eventOutcomes.includes(event.decision.outcome))
+    && run.result.policy_outcomes?.every((outcome) => policyOutcomes.includes(outcome.outcome)) !== false;
 }
 
 function expectedEventSequenceFor(scenario: WalkingSkeletonScenario): readonly EventType[] {
@@ -1602,6 +1743,7 @@ function createCapabilityPlan(task: TaskEnvelope): CapabilityPlan {
 function createCommand(state: WorkState, commandType: CommandType): Command {
   const currentState = deriveState(state.events);
   const commandId = stableId("command", [state.task.trace_id, commandType, String(state.commands.length + 1)]);
+  const inputRefs = inputRefsFor(commandType, state);
   return {
     command_version: "0.1.0",
     command_id: commandId,
@@ -1616,7 +1758,8 @@ function createCommand(state: WorkState, commandType: CommandType): Command {
       caused_by_event_id: lastEventId(state.events),
       caused_by_command_id: lastCommandId(state.commands)
     },
-    input_refs: inputRefsFor(commandType, state),
+    input_refs: inputRefs,
+    effect_request: effectRequestsFor(commandType, state, inputRefs),
     intent: { action: commandType, reason: "walking skeleton deterministic progression" },
     idempotency: {
       key: stableId("idem_command", [state.task.trace_id, commandType, currentState]),
@@ -2021,10 +2164,11 @@ function runRegistryEffect(effect: Effect, state: WorkState): RegistryLookup {
   const capability = state.plan.capabilities[0];
   const policyDecision = requirePolicyDecision(state);
   const snapshotId = registrySnapshotIdFor(state.scenario);
+  const registrySourceRef = registrySourceRefFor();
   const snapshotScope = snapshotScopeFor(state.scenario);
   const lookupCriteria = lookupCriteriaFor(state.scenario, capability, policyDecision);
   const candidates = canonicalCandidates(registryFixtureCandidates(state, capability));
-  const snapshotDigest = snapshotDigestFor(snapshotId, snapshotScope, lookupCriteria, candidates);
+  const snapshotDigest = snapshotDigestFor(registrySourceRef, snapshotScope, lookupCriteria, candidates);
   return {
     lookup_id: stableId("registry_lookup", [state.task.trace_id, snapshotId, capability.capability_id]),
     lookup_version: "0.1.0",
@@ -2033,6 +2177,7 @@ function runRegistryEffect(effect: Effect, state: WorkState): RegistryLookup {
     registry_snapshot_id: snapshotId,
     registry_snapshot_version: "0.1.0",
     registry_snapshot_schema_version: "0.1.0",
+    registry_source_ref: registrySourceRef,
     registry_snapshot_digest: snapshotDigest,
     snapshot_scope: snapshotScope,
     lookup_criteria: lookupCriteria,
@@ -2041,6 +2186,14 @@ function runRegistryEffect(effect: Effect, state: WorkState): RegistryLookup {
     considered_candidates: candidates,
     candidates,
     discarded_candidates: []
+  };
+}
+
+function registrySourceRefFor(): RegistrySourceRef {
+  return {
+    source_id: "registry_source.walking_skeleton.static",
+    source_version: "0.1.0",
+    source_digest: stableId("registry_source_digest", ["walking_skeleton.registry", "0.1.0"])
   };
 }
 
@@ -2118,20 +2271,29 @@ function lookupCriteriaFor(
 }
 
 function snapshotDigestFor(
-  snapshotId: string,
+  registrySourceRef: RegistrySourceRef,
   snapshotScope: SnapshotScope,
   lookupCriteria: LookupCriteria,
   candidates: readonly ExecutorCandidate[]
 ): string {
   return stableId("snapshot_digest", [
-    snapshotId,
-    canonicalStringify({
-      registry_snapshot_schema_version: "0.1.0",
-      snapshot_scope: snapshotScope,
-      lookup_criteria: lookupCriteria,
-      records: canonicalRegistrySnapshotRecords(candidates)
-    })
+    canonicalStringify(registrySnapshotDigestInput(registrySourceRef, snapshotScope, lookupCriteria, candidates))
   ]);
+}
+
+function registrySnapshotDigestInput(
+  registrySourceRef: RegistrySourceRef,
+  snapshotScope: SnapshotScope,
+  lookupCriteria: LookupCriteria,
+  candidates: readonly ExecutorCandidate[]
+): unknown {
+  return {
+    registry_snapshot_schema_version: "0.1.0",
+    registry_source_ref: registrySourceRef,
+    snapshot_scope: snapshotScope,
+    lookup_criteria: lookupCriteria,
+    records: canonicalRegistrySnapshotRecords(candidates)
+  };
 }
 
 function canonicalRegistrySnapshotRecords(candidates: readonly ExecutorCandidate[]): readonly JsonValue[] {
@@ -2893,6 +3055,7 @@ function finalizeRun(state: WorkState, result: ExecutionResult): WalkingSkeleton
     plan: state.plan,
     commands: state.commands,
     runtime_contexts: state.runtimeContexts,
+    registry_lookups: state.registryLookups,
     effects: state.effects,
     events: state.events,
     artifacts: state.artifacts,
@@ -2962,6 +3125,43 @@ function inputRefsFor(commandType: CommandType, state: WorkState): readonly Vers
     }))];
   }
   return base;
+}
+
+function effectRequestsFor(
+  commandType: CommandType,
+  state: WorkState,
+  inputRefs: readonly VersionedRef[]
+): readonly EffectRequest[] {
+  return requestedEffectTypesFor(commandType, state).map((effectType) => ({
+    effect_type: effectType,
+    effect_version: "0.1.0",
+    side_effects: sideEffectsFor(effectType),
+    input_refs: inputRefs
+  }));
+}
+
+function requestedEffectTypesFor(commandType: CommandType, state: WorkState): readonly EffectType[] {
+  if (commandType === "execution.plan.resolve") {
+    return ["policy.evaluate"];
+  }
+  if (commandType === "execution.policy.apply") {
+    const decision = state.policyDecisions.at(-1);
+    return decision?.outcome === "deny" ? ["result.consolidate"] : ["registry.lookup"];
+  }
+  if (commandType === "execution.registry.apply") {
+    const lookup = state.registryLookups.at(-1);
+    return lookup !== undefined && lookup.candidates.length === 0 ? ["result.consolidate"] : [];
+  }
+  if (commandType === "execution.executor.select") {
+    return ["executor.invoke"];
+  }
+  if (commandType === "execution.capability.apply") {
+    return ["artifact.validate"];
+  }
+  if (commandType === "execution.artifact.apply") {
+    return ["result.consolidate"];
+  }
+  return [];
 }
 
 function constraintSetInputRefs(policyDecisions: readonly PolicyDecision[]): readonly VersionedRef[] {
@@ -3162,6 +3362,14 @@ function requireRunSelection(run: WalkingSkeletonRun): ExecutorSelectionEventRef
   return selectedEvent.selection_ref;
 }
 
+function requireRunRegistryLookup(run: WalkingSkeletonRun): RegistryLookup {
+  const lookup = run.registry_lookups.at(-1);
+  if (lookup === undefined) {
+    throw new Error("Expected Registry lookup.");
+  }
+  return lookup;
+}
+
 function eventInputRefs(context: RuntimeContext, evidence: Evidence): readonly VersionedRef[] {
   if (evidence.kind === "registry") {
     return [
@@ -3239,6 +3447,7 @@ function registryRefFor(eventType: EventType, evidence: Evidence): RegistryEvent
     registry_snapshot_id: evidence.lookup.registry_snapshot_id,
     registry_snapshot_version: evidence.lookup.registry_snapshot_version,
     registry_snapshot_schema_version: evidence.lookup.registry_snapshot_schema_version,
+    registry_source_ref: evidence.lookup.registry_source_ref,
     registry_snapshot_digest: evidence.lookup.registry_snapshot_digest,
     snapshot_scope: evidence.lookup.snapshot_scope,
     lookup_criteria: evidence.lookup.lookup_criteria,
@@ -3278,6 +3487,7 @@ function selectionRefFor(eventType: EventType, state: WorkState, evidence: Evide
     registry_snapshot_id: registryLookup.registry_snapshot_id,
     registry_snapshot_version: registryLookup.registry_snapshot_version,
     registry_snapshot_schema_version: registryLookup.registry_snapshot_schema_version,
+    registry_source_ref: registryLookup.registry_source_ref,
     registry_snapshot_digest: registryLookup.registry_snapshot_digest,
     snapshot_scope: registryLookup.snapshot_scope,
     lookup_criteria: registryLookup.lookup_criteria,
@@ -3337,6 +3547,7 @@ function lastRegistryLookup(state: WorkState): RegistryLookup {
       registry_snapshot_id: "registry_snapshot.pending",
       registry_snapshot_version: "0.1.0",
       registry_snapshot_schema_version: "0.1.0",
+      registry_source_ref: registrySourceRefFor(),
       registry_snapshot_digest: "snapshot_digest.pending",
       snapshot_scope: {
         scope_type: "lookup_scoped",

@@ -508,6 +508,12 @@ Eventos devem:
 - registrar constraints quando existirem;
 - apontar para artefato de decisao quando a justificativa for duravel.
 
+Quando um evento registrar `decision.kind: policy_outcome`, seu outcome
+generico pode usar forma verbal, mas deve mapear explicitamente o outcome
+normativo da Policy: `allow` para `allowed`, `allow_with_constraints` para
+`allowed_with_constraints`, `deny` para `denied` e `requires_approval` para
+`requires_approval`.
+
 Evento nao substitui decisao completa de policy nem autoriza reinterpretar
 policy depois.
 

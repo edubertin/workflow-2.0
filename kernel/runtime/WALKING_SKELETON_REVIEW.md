@@ -254,6 +254,8 @@ Responsabilidade:
 
 - derivar estado esperado a partir dos eventos;
 - preencher identidade, causalidade, input refs e idempotencia;
+- registrar `effect_request` para commands que podem declarar trabalho
+  externo, usando `EffectContract.md`;
 - manter `intent.action` alinhado ao `command_type`.
 
 ### createRuntimeContext
@@ -514,8 +516,9 @@ Por que e stub:
 - no cenario com constraints, o objetivo e validar que o Registry nao esconde
   candidatos por constraint e que a avaliacao ocorre no kernel antes do
   ranking.
-- `snapshot_digest` e derivado do conteudo decisivo canonico do snapshot e nao
-  participa do proprio calculo.
+- `registry_source_ref` e explicito, versionado e congelado no snapshot;
+- `snapshot_digest` e derivado de schema, source ref, scope, lookup criteria e
+  records canonicos, sem incluir `snapshot_id` nem o proprio digest.
 
 ### Executor
 
@@ -656,6 +659,7 @@ Justificativa:
 O skeleton valida a arquitetura no nivel minimo pretendido:
 
 - commands sao solicitacoes;
+- commands que podem declarar trabalho externo materializam `effect_request`;
 - Runtime Context captura estado derivado de eventos;
 - State Machine declara effects;
 - effects produzem evidencias por stubs;
